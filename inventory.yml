@@ -1,0 +1,57 @@
+---
+all:
+  vars:
+
+    # Sensible defaults
+    ansible_user: sysadmin
+    ansible_python_interpreter: /usr/bin/python3
+    node_version: 18
+
+    ssh_user_keys:
+      - name: yurko
+        key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtv4I2W8TlVsWKKHwASF78cGrn06BJi9dGQQQksW0Ke9ED/KJG2pvG4GXnh57/AOuJtUaS3gXBEj/knE3t/qtvO2cUg1EufnkItzNLdY1B0Hwm98I8O7JdhE+3c/SUIU4Miioj/IlKl8fRxDqx03FTVBdd6Q7kKF79LcobTqo7Pd6i7vnp46U6bBm01tDdRB+g+lok9x+B8umRqqjAGcboucwZ5NrzmLjz/p1wg+5Gva2zcyzBp1aQk7JPhsbElTLfhUP7hJbJ6rFWnebgK8z/vbyofeZljXb6LttttMGoWKg6QAdn61mRwEGff1FUPVLiEVnQ5IY+f97NlQ36c81b yurko@tomesh"
+      - name: ben
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMLiPavTvnbFRc6JvkGVinFoAk93k88KTg1u3zZQxMyW benedict@Benedicts-MacBook-Air.local"
+
+    # Server that monitoring configs will be updated on
+    monitor_server: monitor.distributed.press
+
+  children:
+    # Prometheus/Grafana Server
+    monitor:
+      hosts:
+        monitor.distributed.press:
+          monitor_job: "infra"
+          letsencrypt_email: infra+noreply@hypha.coop
+          nginx_sites:
+            "monitor.distributed.press":
+              ssl_provider: letsencrypt
+              web_hostname: monitor.distributed.press
+              locations:
+                "/":
+                  proxy_location: http://127.0.0.1:3000
+                  proxy_websocket: True
+                "/loki":
+                  proxy_location: http://127.0.0.1:3100/loki
+                  proxy_websocket: True
+                  basic_auth_file: /opt/loki/htpasswd
+                  basic_auth_description: "401"
+          firewall_ipv6: false
+          firewall_ports:
+            - "ssh":
+              port: 22
+            - "ssl":
+              port: 443
+              protocol: tcp
+            - "http":
+              port: 80
+              protocol: tcp
+            - "nodeexporter":
+              port: 9100
+              protocol: tcp
+              source: "{{ monitor_server }}"
+          matrix_user_token: "{{ secret_matrix_user_token}}"
+          matrix_username: "@roobot:tomesh.net"
+          matrix_room: "!nkXOXfwqkngfHwYIrP:tomesh.net"
+          matrix_alertmanager_secret: "{{ secret_matrix_alertmanager_secret }}"
+          matrix_homeserver_url: https://matrix.tomesh.net
